@@ -22,13 +22,14 @@ module.exports = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 10000
+        runs: 100000
       }
     }
   },
   networks: {
     arbitrumtest: {
       url: "https://rinkeby.arbitrum.io/rpc",
+      // accounts: [""]
     }
   }
 };
