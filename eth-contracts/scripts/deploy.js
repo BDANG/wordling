@@ -5,19 +5,13 @@ async function main() {
     const [owner] = await ethers.getSigners();
     console.log("DEPLOYER: ", owner.address);
     const WordToken = await ethers.getContractFactory("WordToken");
-    const wordToken = await WordToken.deploy();
+    const wordToken = await WordToken.deploy("0x1651700c498A5b77A87Df00D7364C2Ed22AfCa2b");
     console.log("Word Token deployed to:", wordToken.address);
     await wordToken.deployTransaction.wait();
 
-    const Wordling = await ethers.getContractFactory("Wordling");
-    const wordling = await Wordling.deploy(wordToken.address);
-    console.log("Wordling Game deployed to: ", wordling.address);
-    await wordling.deployTransaction.wait();
-
-    const txn = await wordling.getWord();
-    console.log(txn);
+    const txn = await wordToken.publicMint();
     await txn.wait();
-    console.log(await wordling.players(owner.address));
+    console.log(txn);
   }
   
   main()
