@@ -3,15 +3,13 @@ pragma solidity ^0.8.11;
 import "./interfaces/IWordToken.sol";
 
 contract Wordling {
-    uint256 public dictionarySize;
     uint256 cooldown = 180; // number of seconds between fetching words
-    uint256 admission = 100; // number of $WORD tokens that need to be held to play
-
+    uint256 admission = 0; // number of $WORD tokens that need to be held to play
     address private _adminSigner;
 
     struct Player {
-        uint256 word; // index of the list of words that is assigned to the user
-        uint256 unclaimed; // number of words attempted since the last reward claim
+        uint128 word; // index of the list of words that is assigned to the user
+        uint128 unclaimed; // number of words attempted since the last reward claim
         uint256 lastAttempt; // timestamp of the last word retrieved, for rate-limiting
     }
     mapping(address => Player) public players;
@@ -20,6 +18,7 @@ contract Wordling {
     mapping(uint8 => uint256) public scoreRewards;
 
     IWordToken wordToken;
+    uint128 public dictionarySize = 100000;
 
     constructor(address wordTokenAddr) {
         scoreRewards[uint8(1)] = 100;
@@ -40,17 +39,15 @@ contract Wordling {
         require(admission <= wordToken.balanceOf(msg.sender), "Insufficient $WORD to play");
 
         Player storage player = players[msg.sender];
+        uint256 ts = block.timestamp;
 
         // check that the last assignment was before the cooldown period
-        require(player.lastAttempt < block.timestamp - cooldown, "Cooldown");
-
-        // fetch a word
-        uint256 i = uint256(keccak256(abi.encodePacked(block.difficulty, block.timestamp))) % dictionarySize;
+        require(player.lastAttempt < (ts - cooldown), "Cooldown");
 
         // assign the word to the user
-        player.word = i;
+        player.word = uint128(bytes16(keccak256(abi.encodePacked(msg.sender, block.difficulty, ts)))) % dictionarySize;
         player.unclaimed += 1;
-        player.lastAttempt = block.timestamp;
+        player.lastAttempt = ts;
     }
 
     /**
