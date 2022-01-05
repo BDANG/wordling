@@ -17,5 +17,18 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
-  solidity: "0.8.11",
+  solidity: {
+    version: "0.8.11",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 10000
+      }
+    }
+  },
+  networks: {
+    arbitrumtest: {
+      url: "https://rinkeby.arbitrum.io/rpc",
+    }
+  }
 };
