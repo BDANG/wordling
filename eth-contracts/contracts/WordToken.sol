@@ -5,6 +5,7 @@ import "@rari-capital/solmate/src/tokens/ERC20.sol";
 contract WordToken is ERC20 {
     uint256 public cooldown = 60;
     uint256 public admission = 0;
+    uint256 public burn;
     uint256 public constant PUBLIC_LAUNCH_MINT = 100;
     uint256 public constant PUBLIC_LAUNCH_MAX = 1000;
     uint256 public publicLaunchCount;
@@ -15,18 +16,24 @@ contract WordToken is ERC20 {
     // tracks users' last claim timestamp
     mapping(address => uint256) public lastClaim;
 
+    mapping(bytes32 => bool) private messagesUsed;
+
     address private _adminSigner;
     
     // map the number of guesses to scores
     mapping(uint8 => uint256) public scoreRewards;
 
+    event Suggest(address user, string word);
+
     constructor(address _admin) ERC20("Wordling Token", "WORD", 18){
         _adminSigner = _admin;
-        scoreRewards[uint8(1)] = 100;
-        scoreRewards[uint8(2)] = 10;
-        scoreRewards[uint8(3)] = 3;
-        scoreRewards[uint8(4)] = 2;
+        // when scores[1] != 0, the public mint has launched
+        // scoreRewards[uint8(1)] = 100;
+        scoreRewards[uint8(2)] = 5;
+        scoreRewards[uint8(3)] = 2;
+        scoreRewards[uint8(4)] = 1;
         scoreRewards[uint8(5)] = 1;
+        
         // solidity defaults to 0 so no need:
         // scoreRewards[uint8(6)] = 0;
     }
@@ -36,9 +43,10 @@ contract WordToken is ERC20 {
     //  - functions for issuance
     // -----------------------------------------------------------
     /**
-     * @dev The initial public launch mint
+     * @dev The initial public launch mint (free airdrop)
      */
     function publicMint() external {
+        require(scoreRewards[1] != 0, "No claim available");
         require(publicLaunchCount + PUBLIC_LAUNCH_MINT <= PUBLIC_LAUNCH_MAX, "No claim available");
         require(!claims[msg.sender], "No claim available");
         publicLaunchCount += PUBLIC_LAUNCH_MINT;
@@ -49,8 +57,10 @@ contract WordToken is ERC20 {
     /**
      * @dev Giveaway / promotional minting
      */
-    function privateMint() external {
-        // TODO: ecrecover
+    function privateMint(bytes calldata signature) external {
+        bytes32 messageHash = getIssuanceHash(msg.sender);
+        require(verify(messageHash, signature), "Invalid signature");
+
         require(!claims[msg.sender], "No claim available");
         claims[msg.sender] = true;
         _mint(msg.sender, PUBLIC_LAUNCH_MINT);
@@ -60,17 +70,29 @@ contract WordToken is ERC20 {
     /**
      * @dev Reward minting
      */
-    function rewardMint(uint8[] calldata scores, bytes calldata signature) external {
+    function rewardMint(uint8[] calldata scores, uint64[] calldata words, bytes calldata signature) external {
         require(playable(msg.sender), "Insufficient balance");
 
         // cooldown between claims to prevent abuse and dilution
         require(lastClaim[msg.sender] < (block.timestamp - cooldown), "Cooldown");
 
-        // verify that rewards can be issued
-        require(verify(msg.sender, scores, signature), "Invalid signature");
-
+        // verify that rewards can be issued / also checks re-entrancy
+        bytes32 messageHash = getRewardHash(msg.sender, scores, words);
+        require(!messagesUsed[messageHash], "Already used");
+        require(verify(messageHash, signature), "Invalid signature");
+        
+        messagesUsed[messageHash] = true;
         lastClaim[msg.sender] = block.timestamp;
         _mint(msg.sender, calculateReward(scores));
+    }
+
+    /**
+     * @dev Burn some word in order to add a word
+     */
+    function suggestWord(string calldata word) external {
+        require(burn <= balanceOf[msg.sender], "Insufficient balance");
+        _burn(msg.sender, burn);
+        emit Suggest(msg.sender, word);
     }
 
 
@@ -118,8 +140,15 @@ contract WordToken is ERC20 {
     /**
      * @dev Produce a message to sign
      */
-    function getMessageHash(address winner, uint8[] calldata scores) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(winner, scores));
+    function getRewardHash(address winner, uint8[] calldata scores, uint64[] calldata words) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(winner, scores, words));
+    }
+
+    /**
+     * @dev Produce a message to sign for promotional issuance
+     */
+    function getIssuanceHash(address user) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(user));
     }
 
     /**
@@ -129,20 +158,18 @@ contract WordToken is ERC20 {
         return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
     }
 
-    // copied from https://solidity-by-example.org/signature/
+    // modified from https://solidity-by-example.org/signature/
     function verify(
-        address winner,
-        uint8[] calldata scores,
+        bytes32 messageHash,
         bytes memory signature
-    ) public view returns (bool) {
-        bytes32 messageHash = getMessageHash(winner, scores);
+    ) internal view returns (bool) {
         bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
 
         return recoverSigner(ethSignedMessageHash, signature) == _adminSigner;
     }
 
     function recoverSigner(bytes32 _ethSignedMessageHash, bytes memory _signature)
-        public
+        internal
         pure
         returns (address)
     {
@@ -152,7 +179,7 @@ contract WordToken is ERC20 {
     }
 
     function splitSignature(bytes memory sig)
-        public
+        internal
         pure
         returns (
             bytes32 r,

@@ -9,9 +9,11 @@ async function main() {
     console.log("Word Token deployed to:", wordToken.address);
     await wordToken.deployTransaction.wait();
 
-    const txn = await wordToken.publicMint();
+    let txn = await wordToken.publicMint();
     await txn.wait();
-    console.log(txn);
+    
+    txn = await wordToken.suggestWord("hello");
+    await txn.wait();
   }
   
   main()
