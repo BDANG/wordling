@@ -1,6 +1,6 @@
+import hashlib
 import boto3
-from boto3.exceptions import ClientError
-from chalicelib.constants import ACTIVE_GAMES, ADDRESS_PARITIONS
+from chalicelib.constants import ACTIVE_GAMES, ADDRESS_PARITIONS, LEXICON
 
 
 def get_random_word(length, ddb=None):
@@ -16,7 +16,7 @@ def get_random_word(length, ddb=None):
 
 
 def _address_to_partition(address):
-    return address % ADDRESS_PARTITIONS
+    return address % ADDRESS_PARITIONS
 
 
 def get_active_game(address, ddb=None):
@@ -29,3 +29,18 @@ def get_active_game(address, ddb=None):
     )
 
     return response['Item']
+
+
+def add_word(word, ddb=None):
+    if not ddb:
+        ddb = boto3.resource('dynamodb')
+    word = word.lower()
+    word_hash = hashlib.sha256(word.encode('utf-8')).hexdigest()
+    item = {
+        'length': len(word),
+        'hash': word_hash,
+        'word': word
+    }
+
+    lexicon = ddb.Table(LEXICON)
+    lexicon.put_item(Item=item)

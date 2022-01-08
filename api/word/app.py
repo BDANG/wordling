@@ -3,6 +3,7 @@ import boto3
 from boto3.dynamodb.conditions import Key
 import hashlib
 from chalicelib.constants import LEXICON, ACTIVE_GAMES
+import random
 
 
 app = Chalice(app_name='word')
@@ -75,7 +76,7 @@ def add_word_route():
         }
     )
     return {
-        'message': f'Added {word}'
+        'message': f'Added {word}',
         'success': True
     }
 

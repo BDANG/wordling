@@ -1,32 +1,14 @@
 import boto3
+from chalicelib.data import add_word
 
 
 def load_lexicon(ddb=None):
     if not ddb:
         ddb = boto3.resource('dynamodb')
     
-    lexicon_table = ddb.Table('Lexicon')
-    lexicon_table.put_item(
-        Item={
-            'length': 3,
-            'word': 'foo',
-            'index': 1
-        }
-    )
-    lexicon_table.put_item(
-        Item={
-            'length': 3,
-            'word': 'woo',
-            'index': 2
-        }
-    )
-    lexicon_table.put_item(
-        Item={
-            'length': 4,
-            'word': 'woow',
-            'index': 1
-        }
-    )
+    add_word('free', ddb=ddb)
+    add_word('yolo', ddb=ddb)
+    add_word('yolo', ddb=ddb)
 
 
 if __name__ == '__main__':

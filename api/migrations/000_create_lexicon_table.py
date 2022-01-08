@@ -1,18 +1,19 @@
 import boto3
+from chalicelib.constants import LEXICON
 
 
 def create_lexicon(ddb=None):
     if not ddb:
         ddb = boto3.resource('dynamodb')
     return ddb.create_table(
-        TableName="Lexicon",
+        TableName=LEXICON,
         KeySchema=[
             {
                 'AttributeName': 'length',
                 'KeyType': 'HASH'
             },
             {
-                'AttributeName': 'index',
+                'AttributeName': 'hash',
                 'KeyType': 'RANGE'
             }
         ],
@@ -22,8 +23,8 @@ def create_lexicon(ddb=None):
                 'AttributeType': 'N'
             },
             {
-                'AttributeName': 'index',
-                'AttributeType': 'N'
+                'AttributeName': 'hash',
+                'AttributeType': 'S'
             }
         ],
         ProvisionedThroughput={
