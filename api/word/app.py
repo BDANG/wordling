@@ -2,6 +2,7 @@ from chalice import Chalice
 import boto3
 from boto3.dynamodb.conditions import Key
 import hashlib
+from chalicelib.constants import LEXICON, ACTIVE_GAMES
 
 
 app = Chalice(app_name='word')
@@ -21,21 +22,32 @@ def guess_route():
       1: found but not correct
       2: correct
     """
+    ddb = boto3.resource('dynamodb')
+    game = get_active_game(address, ddb=ddb)
+
+    word = game['solution']
+    result = guess_result(guess, word)
 
 
-@app.route('/game', methods=['GET'])
+@app.route('/game', methods=['POST'])
 def get_game_route():
     """
     Retrieve a new game (or an existing game)
     """
+    body = app.current_request.json_body
+    address = body['address']
+
     ddb = boto3.resource('dynamodb')
-    lexicon = ddb.Table('Lexicon')
+    lexicon = ddb.Table(LEXICON)
+    
+    game = get_active_game(address, ddb=ddb)
+    # if not found fetch a new word
 
     # get random length
     r = random.randint(5, 8)
 
     # TODO: include sort key
-    response = table.query(
+    response = lexicon.query(
         KeyConditionExpression=Key('length').eq(r)
     )
 
@@ -54,7 +66,7 @@ def add_word_route():
     word_hash = hashlib.sha256(bytes(word)).hexdigest()
 
     ddb = boto3.resource('dynamodb')
-    lexicon = ddb.Table('Lexicon')
+    lexicon = ddb.Table(LEXICON)
     lexicon.put_item(
         Item={
             'length': length,
@@ -75,7 +87,7 @@ def word_check_route(word):
     """
     word = word.lower()
     ddb = boto3.resource('dynamodb')
-    lexicon = ddb.Table('Lexicon')
+    lexicon = ddb.Table(LEXICON)
     try:
         response = lexicon.get_item(Key={'length': length, 'word': word})
     except ClientError as e:
