@@ -15,8 +15,8 @@ def get_random_word(length, ddb=None):
         return response['Item']
 
 
-def _address_to_partition(address):
-    return address % ADDRESS_PARITIONS
+def address_to_partition(addr_str):
+    return int(addr_str, 16) % ADDRESS_PARITIONS
 
 
 def get_active_game(address, ddb=None):
@@ -25,7 +25,7 @@ def get_active_game(address, ddb=None):
     active_games = ddb.Table(ACTIVE_GAMES)
 
     response = active_games.get_item(
-        Key={'address_partition': _address_to_partition(address), 'address': address}
+        Key={'address_partition': address_to_partition(address), 'address': address}
     )
 
     return response['Item']
