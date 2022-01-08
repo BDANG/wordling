@@ -11,7 +11,8 @@ def get_new_word(ddb=None):
         ddb = boto3.resource('dynamodb')
     lexicon = ddb.Table(LEXICON)
     lexicon.query(
-        
+        ProjectionExpression="word",
+        KeyConditionExpression=Key('length').eq(length) & Key('hash').less
     )
 
 def guess_result(guess, word):
