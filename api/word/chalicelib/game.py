@@ -2,18 +2,35 @@
 
 import boto3
 
-from api.word.chalicelib.constants import ACTIVE_GAMES, LEXICON
+from api.word.chalicelib.constants import ACTIVE_GAMES, LEXICON, MIN_LEN, MAX_LEN
 from chalicelib.data import address_to_partition
+import random
+import hashlib
+import uuid
 
 
 def get_new_word(ddb=None):
     if not ddb:
         ddb = boto3.resource('dynamodb')
     lexicon = ddb.Table(LEXICON)
-    lexicon.query(
-        ProjectionExpression="word",
-        KeyConditionExpression=Key('length').eq(length) & Key('hash').less
-    )
+
+    for _ in range(10):
+        length = random.randint(MIN_LEN, MAX_LEN)
+        random_hash = hashlib.sha256(str(uuid.uuid4()).encode('utf-8')).hexdigest()
+        result = lexicon.query(
+            ProjectionExpression="word",
+            KeyConditionExpression='length = :length AND hash < :hash',
+            ExpressionAttributeValues={
+                ':length': {'N': length},
+                ':hash': {'S': random_hash}
+            }
+        )
+
+        if result:
+            break
+    word = random.choice(result['Items'])
+    print(word)
+    
 
 def guess_result(guess, word):
     guess = guess.lower()
